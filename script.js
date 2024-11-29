@@ -273,6 +273,9 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+const minZoomLevel = 0.5;
+const maxZoomLevel = 10;
+
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     
@@ -282,13 +285,13 @@ canvas.addEventListener('wheel', (e) => {
     const zoomFactor = 0.05;
     const oldZoom = zoomLevel;
     
-    if (e.deltaY < 0) {
+    if (e.deltaY < 0 && zoomLevel < maxZoomLevel) {
         zoomLevel *= (1 + zoomFactor);
-    } else {
+        zoomLevel = Math.min(zoomLevel, maxZoomLevel);
+    } else if (e.deltaY > 0 && zoomLevel > minZoomLevel) {
         zoomLevel *= (1 - zoomFactor);
+        zoomLevel = Math.max(zoomLevel, minZoomLevel);
     }
-    
-    zoomLevel = Math.min(Math.max(0.1, zoomLevel), 10);
     
     if (oldZoom !== zoomLevel) {
         offsetX = mouseX - (e.clientX / zoomLevel);
