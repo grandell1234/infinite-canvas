@@ -1,6 +1,7 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+// Vvariables
 let isDrawing = false;
 let isErasing = false;
 let currentColor = 'white';
@@ -16,28 +17,94 @@ let drawnPaths = [];
 let currentStroke = [];
 let zoomLevel = 1;
 
+const minZoomLevel = 0.5;
+const maxZoomLevel = 10;
+
+// Canvas setup
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-function distanceToLine(x, y, line) {
-    const a = { x: line.startX, y: line.startY };
-    const b = { x: line.endX, y: line.endY };
-    const p = { x, y };
-    
-    const lengthSquared = Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2);
-    if (lengthSquared === 0) return Math.sqrt(Math.pow(p.x - a.x, 2) + Math.pow(p.y - a.y, 2));
-    
-    let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / lengthSquared;
-    t = Math.max(0, Math.min(1, t));
-    
-    const projection = {
-        x: a.x + t * (b.x - a.x),
-        y: a.y + t * (b.y - a.y)
-    };
-    
-    return Math.sqrt(Math.pow(p.x - projection.x, 2) + Math.pow(p.y - projection.y, 2));
-}
+// Event listeners
+canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 0) {
+        isDrawing = true;
+        lastX = (e.clientX / zoomLevel) + offsetX;
+        lastY = (e.clientY / zoomLevel) + offsetY;
+        
+        currentStroke = [];
+        
+        ctx.strokeStyle = isErasing ? 'black' : currentColor;
+        const baseLineWidth = isErasing ? 20 : 5;
+        ctx.lineWidth = baseLineWidth * zoomLevel;
+        ctx.lineCap = 'round';
+        
+        const pointSize = (baseLineWidth / 8) * zoomLevel;
+        ctx.beginPath();
+        ctx.arc(
+            (lastX - offsetX) * zoomLevel,
+            (lastY - offsetY) * zoomLevel,
+            pointSize,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+        
+        currentStroke.push({
+            color: ctx.strokeStyle,
+            lineWidth: baseLineWidth,
+            startX: lastX,
+            startY: lastY,
+            endX: lastX,
+            endY: lastY,
+            isPoint: true
+        });
+    } else if (e.button === 2) {
+        isMoving = true;
+        startX = e.clientX;
+        startY = e.clientY;
+    }
+});
 
+canvas.addEventListener('mousemove', (e) => {
+    draw(e);
+    moveCanvas(e);
+});
+
+canvas.addEventListener('mouseup', () => {
+    if (isDrawing && currentStroke.length > 0) {
+        drawnPaths.push(...currentStroke);
+    }
+    isDrawing = false;
+    isMoving = false;
+});
+
+canvas.addEventListener('mouseout', () => {
+    isDrawing = false;
+    isMoving = false;
+});
+
+document.querySelectorAll('.color').forEach(color => {
+    color.addEventListener('click', () => {
+        currentColor = color.style.backgroundColor;
+        isErasing = false;
+    });
+});
+
+document.querySelector('.eraser').addEventListener('click', () => {
+    isErasing = true;
+    sparkleEffect = false;
+});
+
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    drawBackground();
+    redrawPaths();
+});
+
+// Drawing functions
 function draw(e) {
     if (!isDrawing) return;
 
@@ -179,87 +246,26 @@ function redrawPaths() {
     });
 }
 
-canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 0) {
-        isDrawing = true;
-        lastX = (e.clientX / zoomLevel) + offsetX;
-        lastY = (e.clientY / zoomLevel) + offsetY;
-        
-        currentStroke = [];
-        
-        ctx.strokeStyle = isErasing ? 'black' : currentColor;
-        const baseLineWidth = isErasing ? 20 : 5;
-        ctx.lineWidth = baseLineWidth * zoomLevel;
-        ctx.lineCap = 'round';
-        
-        const pointSize = (baseLineWidth / 8) * zoomLevel;
-        ctx.beginPath();
-        ctx.arc(
-            (lastX - offsetX) * zoomLevel,
-            (lastY - offsetY) * zoomLevel,
-            pointSize,
-            0,
-            Math.PI * 2
-        );
-        ctx.fill();
-        
-        currentStroke.push({
-            color: ctx.strokeStyle,
-            lineWidth: baseLineWidth,
-            startX: lastX,
-            startY: lastY,
-            endX: lastX,
-            endY: lastY,
-            isPoint: true
-        });
-    } else if (e.button === 2) {
-        isMoving = true;
-        startX = e.clientX;
-        startY = e.clientY;
-    }
-});
+function distanceToLine(x, y, line) {
+    const a = { x: line.startX, y: line.startY };
+    const b = { x: line.endX, y: line.endY };
+    const p = { x, y };
+    
+    const lengthSquared = Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2);
+    if (lengthSquared === 0) return Math.sqrt(Math.pow(p.x - a.x, 2) + Math.pow(p.y - a.y, 2));
+    
+    let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / lengthSquared;
+    t = Math.max(0, Math.min(1, t));
+    
+    const projection = {
+        x: a.x + t * (b.x - a.x),
+        y: a.y + t * (b.y - a.y)
+    };
+    
+    return Math.sqrt(Math.pow(p.x - projection.x, 2) + Math.pow(p.y - projection.y, 2));
+}
 
-canvas.addEventListener('mousemove', (e) => {
-    draw(e);
-    moveCanvas(e);
-});
-
-canvas.addEventListener('mouseup', () => {
-    if (isDrawing && currentStroke.length > 0) {
-        drawnPaths.push(...currentStroke);
-    }
-    isDrawing = false;
-    isMoving = false;
-});
-
-canvas.addEventListener('mouseout', () => {
-    isDrawing = false;
-    isMoving = false;
-});
-
-document.querySelectorAll('.color').forEach(color => {
-    color.addEventListener('click', () => {
-        currentColor = color.style.backgroundColor;
-        isErasing = false;
-    });
-});
-
-document.querySelector('.eraser').addEventListener('click', () => {
-    isErasing = true;
-    sparkleEffect = false;
-});
-
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    drawBackground();
-    redrawPaths();
-});
-
-drawBackground();
-
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
         e.preventDefault();
@@ -273,9 +279,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-const minZoomLevel = 0.5;
-const maxZoomLevel = 10;
-
+// Zoom functionality
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     
@@ -301,3 +305,5 @@ canvas.addEventListener('wheel', (e) => {
         redrawPaths();
     }
 });
+
+drawBackground();
